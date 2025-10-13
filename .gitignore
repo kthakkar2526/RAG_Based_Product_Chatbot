@@ -1,0 +1,34 @@
+# --- Python ---
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# --- FastAPI / Backend ---
+*.db
+instance/
+*.sqlite3
+*.log
+
+# --- Node / React ---
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.env
+
+# --- SSL Certificates (mkcert) ---
+frontend/*.pem
+*.pem
+*.crt
+*.key
+
+# --- OS / IDE Files ---
+.DS_Store
+.vscode/
+.idea/
+Thumbs.db
+
+# --- Cache ---
+*.cache
+*.temp

@@ -1,0 +1,5 @@
+fastapi
+uvicorn[standard]
+pydub
+speechrecognition
+python-multipart
