@@ -1,21 +1,41 @@
-# --- Python ---
+# --- Python / FastAPI ---
 venv/
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
 *.pyd
-
-# --- FastAPI / Backend ---
 *.db
-instance/
 *.sqlite3
+instance/
 *.log
+.env
+.env.*
+.envrc
+
+# --- Model / Vector Store Files ---
+chroma_store/
+rag/chroma_store/
+*.pt
+*.bin
+*.pkl
+*.npy
+
+# --- Audio / Uploads ---
+*.webm
+*.mp4
+*.mp3
+*.wav
+uploads/
+recordings/
 
 # --- Node / React ---
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
 frontend/.env
+frontend/.env.*
+frontend/yarn-error.log
+frontend/package-lock.json # optional (if you prefer to regenerate)
 
 # --- SSL Certificates (mkcert) ---
 frontend/*.pem
@@ -28,7 +48,13 @@ frontend/*.pem
 .vscode/
 .idea/
 Thumbs.db
+*.swp
+*.swo
 
-# --- Cache ---
+# --- Cache / Build Artifacts ---
 *.cache
 *.temp
+__snapshots__/
+*.pytest_cache/
+*.mypy_cache/
+*.ruff_cache/
