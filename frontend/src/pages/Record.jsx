@@ -9,75 +9,130 @@ export default function RecordPage() {
   const [transcribedText, setTranscribedText] = useState("");
   const [mediaRecorder, setMediaRecorder] = useState(null);
   const [noteId, setNoteId] = useState(1);
+  const [isProcessing, setIsProcessing] = useState(false);
   const navigate = useNavigate();
 
   const startRecording = async () => {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-    // ✅ Step 1: Dynamically pick MIME type
-    let mimeType = "";
-    if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
-      mimeType = "audio/webm;codecs=opus"; // Chrome, Edge, Firefox
-    } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
-      mimeType = "audio/mp4"; // Safari / iPhone fallback
-    } else if (MediaRecorder.isTypeSupported("audio/mpeg")) {
-      mimeType = "audio/mpeg"; // Some Android browsers
-    } else {
-      alert("Your browser does not support audio recording.");
-      return;
-    }
-
-    const recorder = new MediaRecorder(stream, { mimeType });
-    const chunks = [];
-
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) chunks.push(e.data);
-    };
-
-    recorder.onstop = async () => {
-      const blob = new Blob(chunks, { type: mimeType });
-      if (blob.size === 0) {
-        alert("⚠️ No audio captured. Try recording again.");
+      // Pick MIME type based on browser support
+      let mimeType = "";
+      if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+        mimeType = "audio/webm;codecs=opus";
+      } else if (MediaRecorder.isTypeSupported("audio/webm")) {
+        mimeType = "audio/webm";
+      } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
+        mimeType = "audio/mp4";
+      } else if (MediaRecorder.isTypeSupported("audio/mpeg")) {
+        mimeType = "audio/mpeg";
+      } else {
+        alert("❌ Your browser does not support audio recording.");
         return;
       }
 
-      // ✅ Pick correct filename extension for backend
-      const filename = mimeType.includes("mp4")
-        ? "recording.mp4"
-        : mimeType.includes("mpeg")
-        ? "recording.mp3"
-        : "recording.webm";
+      console.log("🎙️ Using MIME type:", mimeType);
 
-      const formData = new FormData();
-      formData.append("file", blob, filename);
+      const recorder = new MediaRecorder(stream, { mimeType });
+      const chunks = [];
 
-      try {
-        const res = await axios.post(
-          `${import.meta.env.VITE_BACKEND_URL}/api/transcribe/`,
-          formData,
-          { headers: { "Content-Type": "multipart/form-data" } }
-        );
-        setTranscribedText(res.data.text);
-      } catch (err) {
-        console.error("Transcription error:", err);
-        alert("❌ Failed to transcribe audio");
-      }
-    };
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          console.log("📦 Chunk received:", e.data.size, "bytes");
+          chunks.push(e.data);
+        }
+      };
 
-    recorder.start();
-    setMediaRecorder(recorder);
-    setIsRecording(true);
-  } catch (err) {
-    alert("🎤 Microphone access denied or not supported.");
-    console.error(err);
-  }
-};
+      recorder.onstop = async () => {
+        console.log("⏹️ Recording stopped, total chunks:", chunks.length);
+        
+        const blob = new Blob(chunks, { type: mimeType });
+        console.log("📁 Final blob size:", blob.size, "bytes");
+
+        if (blob.size === 0) {
+          alert("⚠️ No audio captured. Please try recording again.");
+          return;
+        }
+
+        // Pick correct filename extension
+        const filename = mimeType.includes("mp4")
+          ? "recording.mp4"
+          : mimeType.includes("mpeg")
+          ? "recording.mp3"
+          : "recording.webm";
+
+        const formData = new FormData();
+        formData.append("file", blob, filename);
+
+        setIsProcessing(true);
+
+        try {
+          console.log("🚀 Sending to backend:", filename, blob.size, "bytes");
+          
+          const res = await axios.post(
+            `${import.meta.env.VITE_BACKEND_URL}/api/transcribe/`,
+            formData,
+            { 
+              headers: { "Content-Type": "multipart/form-data" },
+              timeout: 30000 // 30 second timeout
+            }
+          );
+
+          console.log("✅ Transcription response:", res.data);
+
+          if (res.data.error) {
+            alert(`⚠️ ${res.data.error}`);
+          } else if (res.data.text) {
+            setTranscribedText(res.data.text);
+          } else {
+            alert("⚠️ No text returned from transcription");
+          }
+
+        } catch (err) {
+          console.error("❌ Transcription error:", err);
+          
+          let errorMsg = "Failed to transcribe audio";
+          
+          if (err.response) {
+            // Server responded with error
+            errorMsg = err.response.data?.detail || err.response.data?.error || errorMsg;
+            console.error("Server error:", err.response.status, err.response.data);
+          } else if (err.request) {
+            // Request made but no response
+            errorMsg = "No response from server. Check if backend is running.";
+            console.error("No response:", err.request);
+          } else {
+            // Error setting up request
+            errorMsg = err.message;
+            console.error("Request error:", err.message);
+          }
+          
+          alert(`❌ ${errorMsg}`);
+        } finally {
+          setIsProcessing(false);
+          
+          // Stop all tracks to release microphone
+          stream.getTracks().forEach(track => track.stop());
+        }
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+      
+      console.log("🎙️ Recording started");
+      
+    } catch (err) {
+      console.error("🎤 Microphone error:", err);
+      alert("🎤 Microphone access denied or not supported. Please check your browser permissions.");
+    }
+  };
 
   const stopRecording = () => {
     if (mediaRecorder) {
       mediaRecorder.stop();
       setIsRecording(false);
+      console.log("⏹️ Stopping recording...");
     }
   };
 
@@ -96,7 +151,7 @@ export default function RecordPage() {
       alert("✅ Note saved successfully!");
     } catch (error) {
       console.error("Error saving note:", error);
-      alert("❌ Failed to save note");
+      alert("❌ Failed to save note: " + (error.response?.data?.detail || error.message));
     }
   };
 
@@ -140,13 +195,17 @@ export default function RecordPage() {
         {/* Record Button */}
         <button
           onClick={isRecording ? stopRecording : startRecording}
+          disabled={isProcessing}
           className={`w-full py-3 rounded-xl font-medium text-lg flex items-center justify-center gap-2 shadow-md transition-all 
-            ${isRecording
+            ${isProcessing
+              ? "bg-gray-500 cursor-not-allowed"
+              : isRecording
               ? "bg-red-500 hover:bg-red-600 shadow-red-500/30"
-              : "bg-blue-500 hover:bg-blue-600 shadow-blue-500/30"}`}
+              : "bg-blue-500 hover:bg-blue-600 shadow-blue-500/30"
+            }`}
         >
           <FaMicrophoneAlt className="text-xl" />
-          {isRecording ? "⏹ Stop Recording" : "Start Recording"}
+          {isProcessing ? "⏳ Processing..." : isRecording ? "⏹ Stop Recording" : "Start Recording"}
         </button>
 
         {/* Textbox */}
@@ -155,33 +214,37 @@ export default function RecordPage() {
           value={transcribedText}
           onChange={(e) => setTranscribedText(e.target.value)}
           placeholder="Type or record your note here..."
+          disabled={isProcessing}
           className="w-full mt-5 p-3 rounded-xl border border-gray-500/30 bg-gray-900/40 
                      text-gray-100 placeholder-gray-400 resize-none focus:outline-none 
-                     focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all"
+                     focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all
+                     disabled:opacity-50"
         ></textarea>
 
         <div className="flex flex-col sm:flex-row justify-between gap-3 mt-5">
-  <button
-    onClick={handleSave}
-    className="flex-1 flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white py-2.5 rounded-xl shadow-md transition-all shadow-green-500/30"
-  >
-    <FaSave className="text-lg" /> Save Note
-  </button>
+          <button
+            onClick={handleSave}
+            disabled={isProcessing}
+            className="flex-1 flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white py-2.5 rounded-xl shadow-md transition-all shadow-green-500/30 disabled:opacity-50"
+          >
+            <FaSave className="text-lg" /> Save Note
+          </button>
 
-  <button
-    onClick={handleRecordMore}
-    className="flex-1 flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white py-2.5 rounded-xl shadow-md transition-all shadow-orange-500/30"
-  >
-    <FaRedoAlt className="text-lg" /> Record More
-  </button>
+          <button
+            onClick={handleRecordMore}
+            disabled={isProcessing}
+            className="flex-1 flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white py-2.5 rounded-xl shadow-md transition-all shadow-orange-500/30 disabled:opacity-50"
+          >
+            <FaRedoAlt className="text-lg" /> Record More
+          </button>
 
-  <button
-    onClick={() => navigate("/")}
-    className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white py-2.5 rounded-xl shadow-md transition-all shadow-blue-500/30"
-  >
-    🏠 Home
-  </button>
-</div>
+          <button
+            onClick={() => navigate("/")}
+            className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white py-2.5 rounded-xl shadow-md transition-all shadow-blue-500/30"
+          >
+            🏠 Home
+          </button>
+        </div>
       </motion.div>
 
       {/* Footer */}
