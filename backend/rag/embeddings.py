@@ -6,7 +6,7 @@ client = chromadb.Client(Settings(
     persist_directory="chroma_store"  # store locally
 ))
 collection = client.get_or_create_collection("notes_rag")
-model = SentenceTransformer("all-MiniLM-L6-v2")
+model = SentenceTransformer("./models/all-MiniLM-L6-v2")
 
 def embed_text(text):
     return model.encode([text])[0].tolist()

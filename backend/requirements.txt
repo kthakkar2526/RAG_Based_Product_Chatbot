@@ -8,20 +8,29 @@ pydub==0.25.1
 SpeechRecognition==3.10.1
 
 # Additional Audio Dependencies (needed for speech recognition)
-PyAudio==0.2.14
+# PyAudio==0.2.14
 
 # Database (if using MySQL/PostgreSQL)
 # Uncomment the ones you need:
 # mysql-connector-python==8.2.0
 # pymysql==1.1.0
-# psycopg2-binary==2.9.9
+psycopg2-binary==2.9.9
+pgvector===0.2.4
+numpy==1.26.2
 
-# RAG and AI 
-langchain==0.1.0
-langchain-community==0.0.10
-chromadb==0.4.22
+# RAG and AI - Updated to compatible versions
+langchain==0.2.16
+langchain-community==0.2.16
+langchain-ollama==0.1.1
+chromadb==0.5.3
 sentence-transformers==2.3.1
-ollama==0.1.6
+
+# PDF Processing
+PyMuPDF==1.24.3
+Pillow==10.2.0
 
 # Utilities
 python-dotenv==1.0.0
+rank-bm25
+PyJWT==2.9.0
+google-generativeai==0.8.3

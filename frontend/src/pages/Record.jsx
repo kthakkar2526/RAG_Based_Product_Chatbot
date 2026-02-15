@@ -1,16 +1,36 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { motion } from "framer-motion";
 import { FaMicrophoneAlt, FaSave, FaRedoAlt } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 
-export default function RecordPage() {
+export default function RecordPage( {token} ) {
   const [isRecording, setIsRecording] = useState(false);
   const [transcribedText, setTranscribedText] = useState("");
   const [mediaRecorder, setMediaRecorder] = useState(null);
   const [noteId, setNoteId] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [machines, setMachines] = useState([]);
+  const [selectedMachine, setSelectedMachine] = useState("");
   const navigate = useNavigate();
+  const getAuthHeaders = () => ({
+    Authorization: `Bearer ${token || localStorage.getItem('access_token')}`,
+  });
+
+  useEffect(() => {
+    const fetchMachines = async () => {
+      try {
+        const res = await axios.get(
+          `${import.meta.env.VITE_BACKEND_URL}/api/machines/`,
+          { headers: getAuthHeaders() }
+        );
+        setMachines(res.data.machines || []);
+      } catch (err) {
+        console.error("Failed to fetch machines:", err);
+      }
+    };
+    fetchMachines();
+  }, []);
 
   const startRecording = async () => {
     try {
@@ -73,7 +93,9 @@ export default function RecordPage() {
             `${import.meta.env.VITE_BACKEND_URL}/api/transcribe/`,
             formData,
             { 
-              headers: { "Content-Type": "multipart/form-data" },
+              headers: { "Content-Type": "multipart/form-data",
+                          ...getAuthHeaders()
+              },
               timeout: 30000 // 30 second timeout
             }
           );
@@ -93,6 +115,12 @@ export default function RecordPage() {
           
           let errorMsg = "Failed to transcribe audio";
           
+          if (err.response?.staus === 401) {
+            localStorage.removeItem('access_token');
+            window.location.reload();
+            alert("❌ Session expired. Please log in again.");
+            return;
+          }
           if (err.response) {
             // Server responded with error
             errorMsg = err.response.data?.detail || err.response.data?.error || errorMsg;
@@ -138,19 +166,34 @@ export default function RecordPage() {
 
   const handleSave = async () => {
     if (!transcribedText.trim()) {
-      alert("⚠️ No text to save");
+      alert("No text to save");
+      return;
+    }
+    if (!selectedMachine) {
+      alert("Please select a machine first");
       return;
     }
 
     try {
       const formData = new FormData();
-      formData.append("note_id", noteId);
-      formData.append("text", transcribedText);
+      formData.append("text", String(transcribedText));
+      formData.append("machine_id", selectedMachine);
 
-      await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/save_note/`, formData);
-      alert("✅ Note saved successfully!");
+      await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/save_note/`,
+        formData,
+        { headers: getAuthHeaders() });
+      alert("Note saved successfully!");
+
+      setTranscribedText("");
+      setNoteId((prev) => prev + 1);
     } catch (error) {
       console.error("Error saving note:", error);
+      if (error.response?.status === 401) {
+        localStorage.removeItem('access_token');
+        window.location.reload();
+        alert("❌ Session expired. Please log in again.");
+        return;
+      }
       alert("❌ Failed to save note: " + (error.response?.data?.detail || error.message));
     }
   };
@@ -183,6 +226,28 @@ export default function RecordPage() {
         <p className="text-gray-400 text-sm sm:text-base">
           Speak naturally — your note will be transcribed and saved automatically.
         </p>
+      </motion.div>
+
+      {/* Machine Selector */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.2 }}
+        className="w-full max-w-md mb-4"
+      >
+        <select
+          value={selectedMachine}
+          onChange={(e) => setSelectedMachine(e.target.value)}
+          className="w-full p-3 rounded-xl bg-gray-900/60 border border-gray-600 text-gray-100
+                     focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all"
+        >
+          <option value="">Select a machine...</option>
+          {machines.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name}{m.description ? ` — ${m.description}` : ""}
+            </option>
+          ))}
+        </select>
       </motion.div>
 
       {/* Card */}

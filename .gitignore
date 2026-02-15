@@ -4,8 +4,8 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
-*.db
-*.sqlite3
+# *.db
+# *.sqlite3
 instance/
 *.log
 .env
@@ -13,12 +13,10 @@ instance/
 .envrc
 
 # --- Model / Vector Store Files ---
-chroma_store/
-rag/chroma_store/
-*.pt
-*.bin
-*.pkl
-*.npy
+# *.pt
+# *.bin
+# *.pkl
+# *.npy
 
 # --- Audio / Uploads ---
 *.webm
