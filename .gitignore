@@ -56,3 +56,8 @@ __snapshots__/
 *.pytest_cache/
 *.mypy_cache/
 *.ruff_cache/
+
+# --- RAG Data (PDFs, ChromaDB) ---
+backend/manuals/
+backend/chroma_store/
+*.pdf
